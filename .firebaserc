@@ -1,5 +1,7 @@
 {
   "projects": {
     "default": "video-demo-creation"
-  }
+  },
+  "targets": {},
+  "etags": {}
 }

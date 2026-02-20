@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "video-demo-creation",
+    "site": "wedding-seating-chart",
     "public": "dist",
     "ignore": [
       "firebase.json",

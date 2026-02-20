@@ -10,16 +10,13 @@ interface Props {
 }
 
 export function GuestForm({ guest, onClose }: Props) {
-  const { addGuest, updateGuest, guests } = useStore();
+  const { addGuest, updateGuest } = useStore();
   const [firstName, setFirstName] = useState(guest?.firstName || '');
   const [lastName, setLastName] = useState(guest?.lastName || '');
   const [familyName, setFamilyName] = useState(guest?.familyName || '');
   const [side, setSide] = useState<GuestSide>(guest?.side || 'mutual');
   const [meal, setMeal] = useState<MealPreference>(guest?.meal || 'standard');
   const [notes, setNotes] = useState(guest?.notes || '');
-
-  // Get unique family names for autocomplete
-  const existingFamilies = [...new Set(guests.map((g) => g.familyName))].sort();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,25 +25,20 @@ export function GuestForm({ guest, onClose }: Props) {
     const resolvedFamilyName = familyName.trim() || lastName.trim();
 
     if (guest) {
-      // Find if this family name matches an existing family
-      const existingFamily = guests.find(
-        (g) => g.familyName === resolvedFamilyName && g.id !== guest.id
-      );
       updateGuest(guest.id, {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         familyName: resolvedFamilyName,
-        familyId: existingFamily ? existingFamily.familyId : guest.familyId,
+        familyId: guest.familyId,
         side,
         meal,
         notes: notes.trim(),
       });
     } else {
-      const existingFamily = guests.find((g) => g.familyName === resolvedFamilyName);
       addGuest({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        familyId: existingFamily ? existingFamily.familyId : uuid(),
+        familyId: uuid(),
         familyName: resolvedFamilyName,
         side,
         meal,
@@ -98,15 +90,9 @@ export function GuestForm({ guest, onClose }: Props) {
               value={familyName}
               onChange={(e) => setFamilyName(e.target.value)}
               placeholder="Defaults to last name"
-              list="family-suggestions"
             />
-            <datalist id="family-suggestions">
-              {existingFamilies.map((f) => (
-                <option key={f} value={f} />
-              ))}
-            </datalist>
             <p className="text-xs text-stone-400 mt-1">
-              Guests with the same family name are grouped together.
+              Use "Add Family" to group related guests together.
             </p>
           </div>
 

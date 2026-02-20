@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Upload,
   Filter,
+  Database,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Guest, GuestSide, MealPreference, RSVPStatus } from '../types';
@@ -40,7 +41,7 @@ const rsvpColors: Record<RSVPStatus, string> = {
 };
 
 export function GuestList() {
-  const { guests, removeGuest, updateGuest } = useStore();
+  const { guests, removeGuest, updateGuest, loadSeedData } = useStore();
   const [search, setSearch] = useState('');
   const [filterSide, setFilterSide] = useState<GuestSide | 'all'>('all');
   const [filterRsvp, setFilterRsvp] = useState<RSVPStatus | 'all'>('all');
@@ -172,9 +173,19 @@ export function GuestList() {
       <div className="flex-1 overflow-y-auto space-y-1">
         {filtered.length === 0 && (
           <div className="text-center py-12 text-stone-400">
-            {guests.length === 0
-              ? 'No guests yet. Add your first guest or import a CSV!'
-              : 'No guests match your search.'}
+            {guests.length === 0 ? (
+              <div className="space-y-3">
+                <p>No guests yet. Add your first guest or import a CSV!</p>
+                <button
+                  className="btn-secondary btn-sm inline-flex items-center gap-1.5"
+                  onClick={loadSeedData}
+                >
+                  <Database size={14} /> Load Demo Data (50 guests)
+                </button>
+              </div>
+            ) : (
+              'No guests match your search.'
+            )}
           </div>
         )}
 
@@ -223,6 +234,16 @@ export function GuestList() {
                 />
               </div>
             ))}
+      </div>
+
+      {/* Seed data */}
+      <div className="pt-3 mt-3 border-t border-stone-200 flex justify-center">
+        <button
+          className="btn-ghost btn-sm text-xs text-stone-400 hover:text-stone-600 inline-flex items-center gap-1.5"
+          onClick={loadSeedData}
+        >
+          <Database size={12} /> Load Demo Data (50 guests)
+        </button>
       </div>
 
       {/* Modals */}

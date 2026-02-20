@@ -4,6 +4,7 @@ import { v4 as uuid } from 'uuid';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Guest, Table, VenueSettings, AppView, MealPreference, RSVPStatus, GuestSide, TableShape } from '../types';
+import { generateSeedGuests } from '../data/seedGuests';
 
 interface AppState {
   // Navigation
@@ -38,6 +39,7 @@ interface AppState {
   exportData: () => string;
   importData: (json: string) => boolean;
   clearAll: () => void;
+  loadSeedData: () => void;
 }
 
 const defaultVenue: VenueSettings = {
@@ -359,6 +361,15 @@ export const useStore = create<AppState>()(
         };
         set(newState);
         syncToFirestore(newState);
+      },
+
+      loadSeedData: () => {
+        const seedGuests = generateSeedGuests();
+        set((s) => {
+          const newState = { guests: [...s.guests, ...seedGuests] };
+          syncToFirestore({ ...s, ...newState });
+          return newState;
+        });
       },
     }),
     {

@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { v4 as uuid } from 'uuid';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase';
 import type { Guest, Table, VenueSettings, AppView, MealPreference, RSVPStatus, GuestSide, TableShape } from '../types';
 
 interface AppState {
@@ -46,6 +48,27 @@ const defaultVenue: VenueSettings = {
 
 let tableCounter = 1;
 
+// Sync data to Firestore (debounced)
+let syncTimeout: ReturnType<typeof setTimeout> | null = null;
+let ignoreNextSnapshot = false;
+
+function syncToFirestore(state: { guests: Guest[]; tables: Table[]; venue: VenueSettings }) {
+  if (syncTimeout) clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(async () => {
+    try {
+      ignoreNextSnapshot = true;
+      await setDoc(doc(db, 'seating-charts', 'default'), {
+        guests: state.guests,
+        tables: state.tables,
+        venue: state.venue,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error('Firestore sync failed:', err);
+    }
+  }, 500);
+}
+
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -58,21 +81,33 @@ export const useStore = create<AppState>()(
 
       addGuest: (guest) => {
         const id = uuid();
-        set((s) => ({
-          guests: [...s.guests, { ...guest, id, tableId: null, seatIndex: null }],
-        }));
+        set((s) => {
+          const newState = {
+            guests: [...s.guests, { ...guest, id, tableId: null, seatIndex: null }],
+          };
+          syncToFirestore({ ...s, ...newState });
+          return newState;
+        });
         return id;
       },
 
       updateGuest: (id, updates) =>
-        set((s) => ({
-          guests: s.guests.map((g) => (g.id === id ? { ...g, ...updates } : g)),
-        })),
+        set((s) => {
+          const newState = {
+            guests: s.guests.map((g) => (g.id === id ? { ...g, ...updates } : g)),
+          };
+          syncToFirestore({ ...s, ...newState });
+          return newState;
+        }),
 
       removeGuest: (id) =>
-        set((s) => ({
-          guests: s.guests.filter((g) => g.id !== id),
-        })),
+        set((s) => {
+          const newState = {
+            guests: s.guests.filter((g) => g.id !== id),
+          };
+          syncToFirestore({ ...s, ...newState });
+          return newState;
+        }),
 
       bulkAddFamily: (familyName, side, members) => {
         const familyId = uuid();
@@ -89,7 +124,11 @@ export const useStore = create<AppState>()(
           tableId: null,
           seatIndex: null,
         }));
-        set((s) => ({ guests: [...s.guests, ...newGuests] }));
+        set((s) => {
+          const newState = { guests: [...s.guests, ...newGuests] };
+          syncToFirestore({ ...s, ...newState });
+          return newState;
+        });
       },
 
       importGuestsCSV: (csv) => {
@@ -137,7 +176,11 @@ export const useStore = create<AppState>()(
           });
         }
 
-        set((s) => ({ guests: [...s.guests, ...newGuests] }));
+        set((s) => {
+          const newState = { guests: [...s.guests, ...newGuests] };
+          syncToFirestore({ ...s, ...newState });
+          return newState;
+        });
       },
 
       // Tables
@@ -153,68 +196,89 @@ export const useStore = create<AppState>()(
         }
         tableCounter++;
 
-        set((s) => ({
-          tables: [
-            ...s.tables,
-            {
-              id,
-              name,
-              shape,
-              seats,
-              x: 100 + Math.random() * 400,
-              y: 100 + Math.random() * 300,
-              rotation: 0,
-            },
-          ],
-        }));
+        set((s) => {
+          const newState = {
+            tables: [
+              ...s.tables,
+              {
+                id,
+                name,
+                shape,
+                seats,
+                x: 100 + Math.random() * 400,
+                y: 100 + Math.random() * 300,
+                rotation: 0,
+              },
+            ],
+          };
+          syncToFirestore({ ...s, ...newState });
+          return newState;
+        });
         return id;
       },
 
       updateTable: (id, updates) =>
-        set((s) => ({
-          tables: s.tables.map((t) => (t.id === id ? { ...t, ...updates } : t)),
-        })),
+        set((s) => {
+          const newState = {
+            tables: s.tables.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+          };
+          syncToFirestore({ ...s, ...newState });
+          return newState;
+        }),
 
       removeTable: (id) => {
-        // Unassign all guests from this table first
-        set((s) => ({
-          tables: s.tables.filter((t) => t.id !== id),
-          guests: s.guests.map((g) =>
-            g.tableId === id ? { ...g, tableId: null, seatIndex: null } : g
-          ),
-        }));
+        set((s) => {
+          const newState = {
+            tables: s.tables.filter((t) => t.id !== id),
+            guests: s.guests.map((g) =>
+              g.tableId === id ? { ...g, tableId: null, seatIndex: null } : g
+            ),
+          };
+          syncToFirestore({ ...s, ...newState });
+          return newState;
+        });
       },
 
       // Seating
       assignSeat: (guestId, tableId, seatIndex) => {
-        set((s) => ({
-          guests: s.guests.map((g) => {
-            // Clear existing occupant of this seat
-            if (g.tableId === tableId && g.seatIndex === seatIndex && g.id !== guestId) {
-              return { ...g, tableId: null, seatIndex: null };
-            }
-            // Assign the guest
-            if (g.id === guestId) {
-              return { ...g, tableId, seatIndex };
-            }
-            return g;
-          }),
-        }));
+        set((s) => {
+          const newState = {
+            guests: s.guests.map((g) => {
+              if (g.tableId === tableId && g.seatIndex === seatIndex && g.id !== guestId) {
+                return { ...g, tableId: null, seatIndex: null };
+              }
+              if (g.id === guestId) {
+                return { ...g, tableId, seatIndex };
+              }
+              return g;
+            }),
+          };
+          syncToFirestore({ ...s, ...newState });
+          return newState;
+        });
       },
 
       unassignGuest: (guestId) =>
-        set((s) => ({
-          guests: s.guests.map((g) =>
-            g.id === guestId ? { ...g, tableId: null, seatIndex: null } : g
-          ),
-        })),
+        set((s) => {
+          const newState = {
+            guests: s.guests.map((g) =>
+              g.id === guestId ? { ...g, tableId: null, seatIndex: null } : g
+            ),
+          };
+          syncToFirestore({ ...s, ...newState });
+          return newState;
+        }),
 
       unassignTable: (tableId) =>
-        set((s) => ({
-          guests: s.guests.map((g) =>
-            g.tableId === tableId ? { ...g, tableId: null, seatIndex: null } : g
-          ),
-        })),
+        set((s) => {
+          const newState = {
+            guests: s.guests.map((g) =>
+              g.tableId === tableId ? { ...g, tableId: null, seatIndex: null } : g
+            ),
+          };
+          syncToFirestore({ ...s, ...newState });
+          return newState;
+        }),
 
       autoSeatFamily: (familyId, tableId) => {
         const state = get();
@@ -243,21 +307,29 @@ export const useStore = create<AppState>()(
           assignments.set(g.id, availableSeats[idx]);
         });
 
-        set((s) => ({
-          guests: s.guests.map((g) => {
-            const seat = assignments.get(g.id);
-            if (seat !== undefined) {
-              return { ...g, tableId, seatIndex: seat };
-            }
-            return g;
-          }),
-        }));
+        set((s) => {
+          const newState = {
+            guests: s.guests.map((g) => {
+              const seat = assignments.get(g.id);
+              if (seat !== undefined) {
+                return { ...g, tableId, seatIndex: seat };
+              }
+              return g;
+            }),
+          };
+          syncToFirestore({ ...s, ...newState });
+          return newState;
+        });
       },
 
       // Venue
       venue: { ...defaultVenue },
       updateVenue: (updates) =>
-        set((s) => ({ venue: { ...s.venue, ...updates } })),
+        set((s) => {
+          const newState = { venue: { ...s.venue, ...updates } };
+          syncToFirestore({ ...s, ...newState });
+          return newState;
+        }),
 
       // Data management
       exportData: () => {
@@ -270,6 +342,7 @@ export const useStore = create<AppState>()(
           const data = JSON.parse(json);
           if (data.guests && data.tables && data.venue) {
             set({ guests: data.guests, tables: data.tables, venue: data.venue });
+            syncToFirestore({ guests: data.guests, tables: data.tables, venue: data.venue });
             return true;
           }
           return false;
@@ -278,15 +351,34 @@ export const useStore = create<AppState>()(
         }
       },
 
-      clearAll: () =>
-        set({
-          guests: [],
-          tables: [],
+      clearAll: () => {
+        const newState = {
+          guests: [] as Guest[],
+          tables: [] as Table[],
           venue: { ...defaultVenue },
-        }),
+        };
+        set(newState);
+        syncToFirestore(newState);
+      },
     }),
     {
       name: 'wedding-seating-chart',
     }
   )
 );
+
+// Listen for real-time updates from Firestore
+onSnapshot(doc(db, 'seating-charts', 'default'), (snapshot) => {
+  if (ignoreNextSnapshot) {
+    ignoreNextSnapshot = false;
+    return;
+  }
+  const data = snapshot.data();
+  if (data?.guests && data?.tables && data?.venue) {
+    useStore.setState({
+      guests: data.guests as Guest[],
+      tables: data.tables as Table[],
+      venue: data.venue as VenueSettings,
+    });
+  }
+});

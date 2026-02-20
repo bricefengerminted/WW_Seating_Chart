@@ -10,7 +10,7 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { Plus, Trash2, RotateCw, Settings, Minus, Search, Users, X } from 'lucide-react';
+import { Plus, Trash2, RotateCw, Settings, Minus, Search, Users, X, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Table, TableShape, Guest } from '../types';
 
@@ -84,7 +84,9 @@ export function VenueDesigner() {
   const [showSettings, setShowSettings] = useState(false);
   const [guestSearch, setGuestSearch] = useState('');
   const [activeGuest, setActiveGuest] = useState<Guest | null>(null);
+  const [zoom, setZoom] = useState(1);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const canvasWrapperRef = useRef<HTMLDivElement>(null);
 
   const selectedTableData = tables.find((t) => t.id === selectedTable);
 
@@ -120,7 +122,7 @@ export function VenueDesigner() {
     );
   }, [unseatedGuests]);
 
-  // Table repositioning handlers
+  // Table repositioning handlers (coordinates adjusted for zoom)
   const handleMouseDown = (e: React.MouseEvent, tableId: string) => {
     if (activeGuest) return; // Don't reposition tables during guest drag
     e.stopPropagation();
@@ -129,8 +131,8 @@ export function VenueDesigner() {
 
     const rect = canvasRef.current.getBoundingClientRect();
     setDragOffset({
-      x: e.clientX - rect.left - table.x,
-      y: e.clientY - rect.top - table.y,
+      x: (e.clientX - rect.left) / zoom - table.x,
+      y: (e.clientY - rect.top) / zoom - table.y,
     });
     setDraggingTable(tableId);
     setSelectedTable(tableId);
@@ -140,11 +142,11 @@ export function VenueDesigner() {
     (e: React.MouseEvent) => {
       if (!draggingTable || !canvasRef.current) return;
       const rect = canvasRef.current.getBoundingClientRect();
-      const x = Math.max(0, Math.min(venue.width - 40, e.clientX - rect.left - dragOffset.x));
-      const y = Math.max(0, Math.min(venue.height - 40, e.clientY - rect.top - dragOffset.y));
+      const x = Math.max(0, Math.min(venue.width - 40, (e.clientX - rect.left) / zoom - dragOffset.x));
+      const y = Math.max(0, Math.min(venue.height - 40, (e.clientY - rect.top) / zoom - dragOffset.y));
       updateTable(draggingTable, { x, y });
     },
-    [draggingTable, dragOffset, updateTable, venue]
+    [draggingTable, dragOffset, updateTable, venue, zoom]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -154,6 +156,27 @@ export function VenueDesigner() {
   const handleCanvasClick = () => {
     setSelectedTable(null);
   };
+
+  const ZOOM_MIN = 0.25;
+  const ZOOM_MAX = 2;
+  const ZOOM_STEP = 0.15;
+
+  const handleZoomIn = () => setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)));
+  const handleZoomOut = () => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)));
+  const handleZoomReset = () => setZoom(1);
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        setZoom((z) => {
+          const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+          return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(z + delta).toFixed(2)));
+        });
+      }
+    },
+    []
+  );
 
   // DnD handlers for guest-to-seat assignment
   const handleDragStart = (event: DragStartEvent) => {
@@ -275,12 +298,37 @@ export function VenueDesigner() {
           </div>
 
           {/* Canvas */}
-          <div className="flex-1 overflow-auto">
-            <div style={{ padding: 20 }}>
+          <div className="flex-1 overflow-auto relative" ref={canvasWrapperRef} onWheel={handleWheel}>
+            {/* Zoom controls */}
+            <div className="sticky top-2 left-2 z-30 inline-flex items-center gap-1 bg-white/90 backdrop-blur rounded-lg border border-stone-200 shadow-sm px-1.5 py-1 mb-2">
+              <button className="btn-ghost p-1 rounded" onClick={handleZoomOut} title="Zoom out">
+                <ZoomOut size={14} />
+              </button>
+              <button
+                className="text-xs text-stone-600 font-medium px-1.5 min-w-[3rem] text-center hover:bg-stone-100 rounded cursor-pointer"
+                onClick={handleZoomReset}
+                title="Reset zoom"
+              >
+                {Math.round(zoom * 100)}%
+              </button>
+              <button className="btn-ghost p-1 rounded" onClick={handleZoomIn} title="Zoom in">
+                <ZoomIn size={14} />
+              </button>
+              <button className="btn-ghost p-1 rounded" onClick={handleZoomReset} title="Fit to 100%">
+                <Maximize size={14} />
+              </button>
+            </div>
+
+            <div style={{ width: venue.width * zoom + 40, height: venue.height * zoom + 40, padding: 20 }}>
               <div
                 ref={canvasRef}
                 className="venue-canvas relative bg-white rounded-xl border-2 border-dashed border-stone-300"
-                style={{ width: venue.width, height: venue.height, minWidth: venue.width }}
+                style={{
+                  width: venue.width,
+                  height: venue.height,
+                  transform: `scale(${zoom})`,
+                  transformOrigin: 'top left',
+                }}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
@@ -508,8 +556,17 @@ export function VenueDesigner() {
 
       <DragOverlay>
         {activeGuest && (
-          <div className="drag-overlay bg-white rounded-lg border-2 border-rose-400 shadow-lg px-3 py-2 text-sm font-medium">
-            {activeGuest.firstName} {activeGuest.lastName}
+          <div
+            className={`w-6 h-6 rounded-full border-2 text-[10px] font-bold flex items-center justify-center shadow-lg cursor-grabbing ${
+              activeGuest.side === 'bride'
+                ? 'bg-pink-400 border-pink-500 text-white'
+                : activeGuest.side === 'groom'
+                ? 'bg-blue-400 border-blue-500 text-white'
+                : 'bg-purple-400 border-purple-500 text-white'
+            }`}
+            title={`${activeGuest.firstName} ${activeGuest.lastName}`}
+          >
+            {activeGuest.firstName[0]}
           </div>
         )}
       </DragOverlay>

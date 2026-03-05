@@ -27,27 +27,29 @@ const TABLE_PRESETS: { label: string; shape: TableShape; seats: number }[] = [
 function getTableDimensions(table: Table) {
   switch (table.shape) {
     case 'round':
-      return { width: 80 + table.seats * 6, height: 80 + table.seats * 6 };
+      return { width: 80 + table.seats * 8, height: 80 + table.seats * 8 };
     case 'rectangular':
-      return { width: 100 + table.seats * 10, height: 70 };
+      return { width: 120 + table.seats * 18, height: 70 };
     case 'long':
-      return { width: 60 + table.seats * 16, height: 60 };
+      return { width: 80 + table.seats * 22, height: 60 };
   }
 }
 
+const CHAIR_SIZE = 34;
+
 function getChairPositions(table: Table, dims: { width: number; height: number }) {
   const positions: { x: number; y: number }[] = [];
-  const size = 16;
+  const half = CHAIR_SIZE / 2;
 
   if (table.shape === 'round') {
     for (let i = 0; i < table.seats; i++) {
       const angle = (i * 360) / table.seats - 90;
       const rad = (angle * Math.PI) / 180;
-      const rx = dims.width / 2 + 4;
-      const ry = dims.height / 2 + 4;
+      const rx = dims.width / 2 + 6;
+      const ry = dims.height / 2 + 6;
       positions.push({
-        x: dims.width / 2 + rx * Math.cos(rad) - size / 2,
-        y: dims.height / 2 + ry * Math.sin(rad) - size / 2,
+        x: dims.width / 2 + rx * Math.cos(rad) - half,
+        y: dims.height / 2 + ry * Math.sin(rad) - half,
       });
     }
   } else {
@@ -58,16 +60,16 @@ function getChairPositions(table: Table, dims: { width: number; height: number }
     for (let i = 0; i < topCount; i++) {
       const spacing = dims.width / (topCount + 1);
       positions.push({
-        x: spacing * (i + 1) - size / 2,
-        y: -12,
+        x: spacing * (i + 1) - half,
+        y: -CHAIR_SIZE - 2,
       });
     }
 
     for (let i = 0; i < bottomCount; i++) {
       const spacing = dims.width / (bottomCount + 1);
       positions.push({
-        x: spacing * (i + 1) - size / 2,
-        y: dims.height - 4,
+        x: spacing * (i + 1) - half,
+        y: dims.height + 2,
       });
     }
   }
@@ -557,16 +559,18 @@ export function VenueDesigner() {
       <DragOverlay>
         {activeGuest && (
           <div
-            className={`w-6 h-6 rounded-full border-2 text-[10px] font-bold flex items-center justify-center shadow-lg cursor-grabbing ${
+            className={`rounded-full border-2 text-[8px] font-medium flex flex-col items-center justify-center shadow-lg cursor-grabbing ${
               activeGuest.side === 'bride'
                 ? 'bg-pink-400 border-pink-500 text-white'
                 : activeGuest.side === 'groom'
                 ? 'bg-blue-400 border-blue-500 text-white'
                 : 'bg-purple-400 border-purple-500 text-white'
             }`}
+            style={{ width: CHAIR_SIZE, height: CHAIR_SIZE }}
             title={`${activeGuest.firstName} ${activeGuest.lastName}`}
           >
-            {activeGuest.firstName[0]}
+            <span className="text-[7px] leading-tight truncate max-w-[30px]">{activeGuest.firstName}</span>
+            <span className="text-[6px] leading-tight opacity-80">{activeGuest.lastName[0]}.</span>
           </div>
         )}
       </DragOverlay>
@@ -597,23 +601,34 @@ function VenueChair({
   return (
     <div
       ref={setNodeRef}
-      className={`absolute w-4 h-4 rounded-full border text-[7px] flex items-center justify-center transition-all ${
+      className={`absolute rounded-full border flex flex-col items-center justify-center transition-all overflow-hidden ${
         isOver
-          ? 'bg-rose-400 border-rose-500 ring-2 ring-rose-300 scale-150'
+          ? 'bg-rose-400 border-rose-500 ring-2 ring-rose-300 scale-110'
           : guest
           ? 'bg-rose-400 border-rose-500 text-white'
           : isDragActive
-          ? 'bg-rose-50 border-rose-300 scale-110'
+          ? 'bg-rose-50 border-rose-300 scale-105'
           : 'bg-white border-stone-300'
       }`}
-      style={{ left: x, top: y }}
+      style={{ left: x, top: y, width: CHAIR_SIZE, height: CHAIR_SIZE }}
       title={
         guest
           ? `${guest.firstName} ${guest.lastName} (Seat ${seatIndex + 1})`
           : `Seat ${seatIndex + 1}`
       }
     >
-      {guest ? guest.firstName[0] : ''}
+      {guest ? (
+        <>
+          <span className="text-[7px] leading-tight font-medium truncate max-w-[30px] text-center">
+            {guest.firstName}
+          </span>
+          <span className="text-[6px] leading-tight opacity-80 truncate max-w-[30px] text-center">
+            {guest.lastName[0]}.
+          </span>
+        </>
+      ) : (
+        <span className="text-[7px] text-stone-400">{seatIndex + 1}</span>
+      )}
     </div>
   );
 }

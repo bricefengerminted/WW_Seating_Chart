@@ -27,15 +27,15 @@ const TABLE_PRESETS: { label: string; shape: TableShape; seats: number }[] = [
 function getTableDimensions(table: Table) {
   switch (table.shape) {
     case 'round':
-      return { width: 100 + table.seats * 14, height: 100 + table.seats * 14 };
+      return { width: 80 + table.seats * 12, height: 80 + table.seats * 12 };
     case 'rectangular':
-      return { width: 160 + table.seats * 28, height: 90 };
+      return { width: 120 + table.seats * 22, height: 70 };
     case 'long':
-      return { width: 100 + table.seats * 32, height: 80 };
+      return { width: 80 + table.seats * 24, height: 60 };
   }
 }
 
-const CHAIR_SIZE = 56;
+const CHAIR_SIZE = 36;
 
 function getChairPositions(table: Table, dims: { width: number; height: number }) {
   const positions: { x: number; y: number }[] = [];
@@ -272,7 +272,7 @@ export function VenueDesigner() {
                 onChange={(e) => setGuestSearch(e.target.value)}
               />
             </div>
-            <p className="text-[10px] text-stone-400 mb-2">
+            <p className="text-[8px] text-stone-400 mb-2">
               Drag guests onto chair slots to assign seats
             </p>
             <div className="flex-1 overflow-y-auto space-y-1">
@@ -280,7 +280,7 @@ export function VenueDesigner() {
                 <div key={familyId} className="mb-2">
                   <div className="flex items-center gap-1 mb-0.5">
                     <Users size={10} className="text-stone-400" />
-                    <span className="text-[10px] font-medium text-stone-500 truncate">
+                    <span className="text-[8px] font-medium text-stone-500 truncate">
                       {members[0].familyName}
                     </span>
                   </div>
@@ -382,7 +382,7 @@ export function VenueDesigner() {
                         }`}
                       >
                         <span className="font-semibold">{table.name}</span>
-                        <span className="text-[10px] opacity-70">
+                        <span className="text-[8px] opacity-70">
                           {seated.length}/{table.seats} seats
                         </span>
                       </div>
@@ -559,7 +559,7 @@ export function VenueDesigner() {
       <DragOverlay>
         {activeGuest && (
           <div
-            className={`rounded-full border-2 text-[10px] font-medium flex flex-col items-center justify-center shadow-lg cursor-grabbing ${
+            className={`rounded-full border-2 text-[8px] font-medium flex flex-col items-center justify-center shadow-lg cursor-grabbing ${
               activeGuest.side === 'bride'
                 ? 'bg-pink-400 border-pink-500 text-white'
                 : activeGuest.side === 'groom'
@@ -569,8 +569,8 @@ export function VenueDesigner() {
             style={{ width: CHAIR_SIZE, height: CHAIR_SIZE }}
             title={`${activeGuest.firstName} ${activeGuest.lastName}`}
           >
-            <span className="text-[10px] leading-tight truncate max-w-[50px]">{activeGuest.firstName}</span>
-            <span className="text-[9px] leading-tight opacity-80">{activeGuest.lastName[0]}.</span>
+            <span className="text-[8px] leading-tight truncate max-w-[30px]">{activeGuest.firstName}</span>
+            <span className="text-[7px] leading-tight opacity-80">{activeGuest.lastName[0]}.</span>
           </div>
         )}
       </DragOverlay>
@@ -619,15 +619,15 @@ function VenueChair({
     >
       {guest ? (
         <>
-          <span className="text-[10px] leading-tight font-medium truncate max-w-[50px] text-center">
+          <span className="text-[8px] leading-tight font-medium truncate max-w-[30px] text-center">
             {guest.firstName}
           </span>
-          <span className="text-[9px] leading-tight opacity-80 truncate max-w-[50px] text-center">
+          <span className="text-[7px] leading-tight opacity-80 truncate max-w-[30px] text-center">
             {guest.lastName[0]}.
           </span>
         </>
       ) : (
-        <span className="text-[10px] text-stone-400">{seatIndex + 1}</span>
+        <span className="text-[8px] text-stone-400">{seatIndex + 1}</span>
       )}
     </div>
   );

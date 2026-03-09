@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -95,6 +95,15 @@ export function VenueDesigner() {
   );
 
   const getGuestsAtTable = (tableId: string) => guests.filter((g) => g.tableId === tableId);
+
+  // Auto-select the first table with guests on initial load
+  useEffect(() => {
+    if (selectedTable) return;
+    const tableWithGuests = tables.find((t) => guests.some((g) => g.tableId === t.id));
+    if (tableWithGuests) {
+      setSelectedTable(tableWithGuests.id);
+    }
+  }, [tables, guests]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Unseated guests for the sidebar
   const unseatedGuests = useMemo(() => {

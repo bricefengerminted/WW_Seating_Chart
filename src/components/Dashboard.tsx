@@ -9,6 +9,8 @@ import {
   Trash2,
   Printer,
   Heart,
+  FileSpreadsheet,
+  FileText,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { MealPreference, GuestSide } from '../types';
@@ -84,7 +86,7 @@ export function Dashboard() {
     };
   }, [guests, tables]);
 
-  const handleExport = () => {
+  const handleExportJSON = () => {
     const data = exportData();
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -93,6 +95,86 @@ export function Dashboard() {
     a.download = 'wedding-seating-chart.json';
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleExportCSV = () => {
+    const header = ['First Name', 'Last Name', 'Family', 'Side', 'RSVP', 'Meal', 'Table', 'Seat', 'Notes'];
+    const rows = guests.map((g) => {
+      const table = tables.find((t) => t.id === g.tableId);
+      return [
+        g.firstName,
+        g.lastName,
+        g.familyName,
+        g.side,
+        g.rsvp,
+        g.meal,
+        table?.name ?? 'Unseated',
+        g.seatIndex != null ? g.seatIndex + 1 : '',
+        g.notes,
+      ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',');
+    });
+    const csv = [header.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'wedding-seating-chart.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportPDF = () => {
+    const w = window.open('', '_blank');
+    if (!w) return;
+    const tableRows = tables.map((table) => {
+      const seated = guests.filter((g) => g.tableId === table.id)
+        .sort((a, b) => (a.seatIndex ?? 0) - (b.seatIndex ?? 0));
+      return { table, seated };
+    });
+    const unseated = guests.filter((g) => !g.tableId && g.rsvp !== 'declined');
+    w.document.write(`<!DOCTYPE html><html><head><title>Wedding Seating Chart</title>
+      <style>
+        body { font-family: Georgia, serif; max-width: 800px; margin: 0 auto; padding: 40px 20px; color: #333; }
+        h1 { text-align: center; color: #e11d48; margin-bottom: 4px; }
+        h2 { border-bottom: 2px solid #e11d48; padding-bottom: 4px; margin-top: 28px; }
+        h3 { margin-top: 20px; color: #555; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px; }
+        th { background: #fef2f2; text-align: left; padding: 6px 10px; border: 1px solid #ddd; }
+        td { padding: 6px 10px; border: 1px solid #ddd; }
+        tr:nth-child(even) { background: #fafafa; }
+        .summary { display: flex; gap: 24px; justify-content: center; margin: 16px 0; font-size: 15px; }
+        .summary span { background: #fef2f2; padding: 6px 14px; border-radius: 6px; }
+        @media print { body { padding: 0; } }
+      </style></head><body>
+      <h1>Wedding Seating Chart</h1>
+      <div class="summary">
+        <span><strong>${guests.length}</strong> Guests</span>
+        <span><strong>${guests.filter((g) => g.rsvp === 'accepted').length}</strong> Accepted</span>
+        <span><strong>${tables.length}</strong> Tables</span>
+      </div>
+      ${tableRows.map(({ table, seated }) => `
+        <h2>${table.name} <small style="color:#999; font-weight:normal">(${seated.length}/${table.seats} seats)</small></h2>
+        ${seated.length > 0 ? `<table>
+          <tr><th>#</th><th>Name</th><th>Meal</th><th>Side</th><th>Notes</th></tr>
+          ${seated.map((g, i) => `<tr>
+            <td>${i + 1}</td><td>${g.firstName} ${g.lastName}</td>
+            <td>${g.meal}</td><td>${g.side}</td><td>${g.notes || '—'}</td>
+          </tr>`).join('')}
+        </table>` : '<p style="color:#999">No guests seated</p>'}
+      `).join('')}
+      ${unseated.length > 0 ? `
+        <h2>Unseated Guests <small style="color:#999; font-weight:normal">(${unseated.length})</small></h2>
+        <table>
+          <tr><th>Name</th><th>Family</th><th>Meal</th><th>Side</th></tr>
+          ${unseated.map((g) => `<tr>
+            <td>${g.firstName} ${g.lastName}</td><td>${g.familyName}</td>
+            <td>${g.meal}</td><td>${g.side}</td>
+          </tr>`).join('')}
+        </table>
+      ` : ''}
+      </body></html>`);
+    w.document.close();
+    w.print();
   };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -248,7 +330,16 @@ export function Dashboard() {
       <div className="card p-5">
         <h3 className="text-sm font-semibold mb-3">Data Management</h3>
         <div className="flex flex-wrap gap-2">
-          <button className="btn-secondary btn-sm" onClick={handleExport}>
+          <button className="btn-secondary btn-sm" onClick={handleExportCSV}>
+            <FileSpreadsheet size={14} /> Export CSV
+          </button>
+          <button className="btn-secondary btn-sm" onClick={handleExportPDF}>
+            <FileText size={14} /> Export PDF
+          </button>
+          <button className="btn-secondary btn-sm" onClick={handlePrint}>
+            <Printer size={14} /> Print Chart
+          </button>
+          <button className="btn-secondary btn-sm" onClick={handleExportJSON}>
             <Download size={14} /> Export JSON
           </button>
           <button className="btn-secondary btn-sm" onClick={() => fileInputRef.current?.click()}>
@@ -261,9 +352,6 @@ export function Dashboard() {
             className="hidden"
             onChange={handleImport}
           />
-          <button className="btn-secondary btn-sm" onClick={handlePrint}>
-            <Printer size={14} /> Print Chart
-          </button>
           <div className="ml-auto">
             {showClearConfirm ? (
               <div className="flex items-center gap-2">

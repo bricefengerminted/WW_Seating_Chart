@@ -27,15 +27,15 @@ const TABLE_PRESETS: { label: string; shape: TableShape; seats: number }[] = [
 function getTableDimensions(table: Table) {
   switch (table.shape) {
     case 'round':
-      return { width: 80 + table.seats * 8, height: 80 + table.seats * 8 };
+      return { width: 100 + table.seats * 14, height: 100 + table.seats * 14 };
     case 'rectangular':
-      return { width: 120 + table.seats * 18, height: 70 };
+      return { width: 160 + table.seats * 28, height: 90 };
     case 'long':
-      return { width: 80 + table.seats * 22, height: 60 };
+      return { width: 100 + table.seats * 32, height: 80 };
   }
 }
 
-const CHAIR_SIZE = 34;
+const CHAIR_SIZE = 56;
 
 function getChairPositions(table: Table, dims: { width: number; height: number }) {
   const positions: { x: number; y: number }[] = [];
@@ -45,8 +45,8 @@ function getChairPositions(table: Table, dims: { width: number; height: number }
     for (let i = 0; i < table.seats; i++) {
       const angle = (i * 360) / table.seats - 90;
       const rad = (angle * Math.PI) / 180;
-      const rx = dims.width / 2 + 6;
-      const ry = dims.height / 2 + 6;
+      const rx = dims.width / 2 + 10;
+      const ry = dims.height / 2 + 10;
       positions.push({
         x: dims.width / 2 + rx * Math.cos(rad) - half,
         y: dims.height / 2 + ry * Math.sin(rad) - half,
@@ -559,7 +559,7 @@ export function VenueDesigner() {
       <DragOverlay>
         {activeGuest && (
           <div
-            className={`rounded-full border-2 text-[8px] font-medium flex flex-col items-center justify-center shadow-lg cursor-grabbing ${
+            className={`rounded-full border-2 text-[10px] font-medium flex flex-col items-center justify-center shadow-lg cursor-grabbing ${
               activeGuest.side === 'bride'
                 ? 'bg-pink-400 border-pink-500 text-white'
                 : activeGuest.side === 'groom'
@@ -569,8 +569,8 @@ export function VenueDesigner() {
             style={{ width: CHAIR_SIZE, height: CHAIR_SIZE }}
             title={`${activeGuest.firstName} ${activeGuest.lastName}`}
           >
-            <span className="text-[7px] leading-tight truncate max-w-[30px]">{activeGuest.firstName}</span>
-            <span className="text-[6px] leading-tight opacity-80">{activeGuest.lastName[0]}.</span>
+            <span className="text-[10px] leading-tight truncate max-w-[50px]">{activeGuest.firstName}</span>
+            <span className="text-[9px] leading-tight opacity-80">{activeGuest.lastName[0]}.</span>
           </div>
         )}
       </DragOverlay>
@@ -619,15 +619,15 @@ function VenueChair({
     >
       {guest ? (
         <>
-          <span className="text-[7px] leading-tight font-medium truncate max-w-[30px] text-center">
+          <span className="text-[10px] leading-tight font-medium truncate max-w-[50px] text-center">
             {guest.firstName}
           </span>
-          <span className="text-[6px] leading-tight opacity-80 truncate max-w-[30px] text-center">
+          <span className="text-[9px] leading-tight opacity-80 truncate max-w-[50px] text-center">
             {guest.lastName[0]}.
           </span>
         </>
       ) : (
-        <span className="text-[7px] text-stone-400">{seatIndex + 1}</span>
+        <span className="text-[10px] text-stone-400">{seatIndex + 1}</span>
       )}
     </div>
   );
